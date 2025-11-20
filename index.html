@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="utf-8">
     <meta name="description"
@@ -38,23 +39,51 @@
 
         .render_div {
             position: relative;
-            height: 300px;
             width: 100%;
+            height: 300px;
+        }
+        
+        /* Ensure carousel navigation buttons work */
+        .carousel-container,
+        .container {
+            position: relative;
+            overflow: visible !important;
+        }
+        
+        .carousel .slider-navigation-previous,
+        .carousel .slider-navigation-next {
+            pointer-events: auto !important;
+            z-index: 1000 !important;
+            position: absolute !important;
+            background: rgba(0, 0, 0, 0.7) !important;
+            color: white !important;
+            border: 2px solid white !important;
+            cursor: pointer !important;
+            width: 50px !important;
+            height: 50px !important;
+            border-radius: 50% !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            font-size: 24px !important;
+        }
+        
+        .carousel .slider-navigation-previous {
+            left: 10px !important;
+        }
+        
+        .carousel .slider-navigation-next {
+            right: 10px !important;
+        }
+        
+        .carousel .slider-navigation-previous:hover,
+        .carousel .slider-navigation-next:hover {
+            background: rgba(0, 0, 0, 0.9) !important;
         }
 
     </style>
-
-    <style>
-      .small-line {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        white-space: nowrap;
-        font-size: 12px;
-        width: 100%;
-      }
-    </style>
-
 
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
 
@@ -65,7 +94,6 @@
             }
         }
     </script>
-
     <script type="module">
         import * as THREE from 'three';
 
@@ -73,46 +101,16 @@
         import {OrbitControls} from './js/OrbitControls.js'
 
         let div_to_scene = {
-            "loc_1": {
-                "geo": null,
-                "color": null,
-            },
-            "loc_1b": {
-                "geo": null,
-                "color": null,
-            },
-            "loc_2": {
-                "geo": null,
-                "color": null,
-            },
-            "loc_2b": {
-                "geo": null,
-                "color": null,
-            },
-            "loc_3": {
-                "geo": null,
-                "color": null,
-            },
-            "loc_3b": {
-                "geo": null,
-                "color": null,
-            },
-            "loc_4": {
-                "geo": null,
-                "color": null,
-            },
-            "loc_4b": {
-                "geo": null,
-                "color": null,
-            },
-            "loc_5": {
-                "geo": null,
-                "color": null,
-            },
-            "loc_5b": {
-                "geo": null,
-                "color": null,
-            }
+            "loc_1_top": { "geo": null, "color": null },
+            "loc_1_bottom": { "geo": null, "color": null },
+            "loc_2_top": { "geo": null, "color": null },
+            "loc_2_bottom": { "geo": null, "color": null },
+            "loc_3_top": { "geo": null, "color": null },
+            "loc_3_bottom": { "geo": null, "color": null },
+            "loc_4_top": { "geo": null, "color": null },
+            "loc_4_bottom": { "geo": null, "color": null },
+            "loc_5_top": { "geo": null, "color": null },
+            "loc_5_bottom": { "geo": null, "color": null }
         }
         let div_to_render_scene = {
             "mesh_style_0": {
@@ -153,7 +151,7 @@
 
             let camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 50);
 
-            camera.position.set(0, 0, 5);
+            camera.position.set(0, 0, 15);
             camera.up.set(0, 1, 0);
             camera.lookAt(new THREE.Vector3(0, 0, 0));
 
@@ -166,16 +164,6 @@
             list_of_orbit_controls.push(orbit_control)
         }
 
-        function setup_dual_render_divs(div_name_1, mesh_path_1, div_name_2, mesh_path_2) {
-            let camera1 = setup_camera(div_name_1)
-            let orbit_control1 = create_render_div(camera1, div_name_1, mesh_path_1)
-            list_of_orbit_controls.push(orbit_control1)
-            
-            let camera2 = setup_camera(div_name_2)
-            let orbit_control2 = create_render_div(camera2, div_name_2, mesh_path_2)
-            list_of_orbit_controls.push(orbit_control2)
-        }
-
         function create_render_div(camera, div_id, mesh_path) {
             let container;
             let renderer, controls;
@@ -186,9 +174,20 @@
             function init() {
 
                 container = document.getElementById(div_id);
+                if (!container) {
+                    console.error('Container not found for div_id:', div_id);
+                    return;
+                }
                 let width = container.parentElement.clientWidth;
                 let height = container.parentElement.clientHeight;
 
+                console.log('Initializing', div_id, 'with mesh:', mesh_path, 'width:', width, 'height:', height);
+                
+                if (width === 0 || height === 0) {
+                    console.warn('Container has zero dimensions for', div_id, '- retrying in 100ms');
+                    setTimeout(init, 100);
+                    return;
+                }
 
                 div_to_scene[div_id]["color"] = new THREE.Scene();
                 div_to_scene[div_id]["geo"] = new THREE.Scene();
@@ -201,6 +200,26 @@
                 loader.load(mesh_path, function (geometry) {
 
                         geometry.computeVertexNormals();
+                        
+                        // Center the geometry
+                        geometry.computeBoundingBox();
+                        const boundingBox = geometry.boundingBox;
+                        const center = new THREE.Vector3();
+                        boundingBox.getCenter(center);
+                        geometry.translate(-center.x, center.y, -center.z);
+                        
+                        // Calculate size for camera positioning
+                        const size = new THREE.Vector3();
+                        boundingBox.getSize(size);
+                        const maxDim = Math.max(size.x, size.y, size.z);
+                        const fov = camera.fov * (Math.PI / 180);
+                        let cameraZ = Math.abs(maxDim / 2 / Math.tan(fov / 2));
+                        cameraZ *= 4; // Zoom out a bit more
+                        
+                        camera.position.set(0, 0, cameraZ);
+                        camera.lookAt(0, 0, 0);
+                        camera.updateProjectionMatrix();
+                        
                         let material_color = new THREE.MeshStandardMaterial({
                             color: 0xaaaaaa,
                             flatShading: true,
@@ -353,16 +372,27 @@
             let slider = document.getElementsByClassName("slider")[0]
             slider.removeAttribute("tabIndex")
             // slider.addEventListener("mouseout", reset_orbit_controls);
-            setup_dual_render_divs("loc_1", './static/meshes/dsm_295500_5629750.ply', "loc_1b", './static/meshes/groundiff_295500_5629750.ply')
-            setup_dual_render_divs("loc_2", './static/meshes/dsm_296750_5629500.ply', "loc_2b", './static/meshes/groundiff_296750_5629500.ply')
-            setup_dual_render_divs("loc_3", './static/meshes/dsm_381750_5760000.ply', "loc_3b", './static/meshes/groundiff_381750_5760000.ply')
-            setup_dual_render_divs("loc_4", './static/meshes/dsm_395000_5708750.ply', "loc_4b", './static/meshes/groundiff_395000_5708750.ply')
-            setup_dual_render_divs("loc_5", './static/meshes/dsm_419500_5726000.ply', "loc_5b", './static/meshes/groundiff_419500_5726000.ply')
+            
+            // Only show 5 locations to stay within WebGL context limit
+            // Location 1 - top and bottom viewers
+            setup_render_divs("loc_1_top", './models/295750_5629000/dsm.ply')
+            setup_render_divs("loc_1_bottom", './models/295750_5629000/groundiff.ply')
+            // Location 2
+            setup_render_divs("loc_2_top", './models/296250_5629500/dsm.ply')
+            setup_render_divs("loc_2_bottom", './models/296250_5629500/groundiff.ply')
+            // Location 3
+            setup_render_divs("loc_3_top", './models/346500_5676500/dsm.ply')
+            setup_render_divs("loc_3_bottom", './models/346500_5676500/groundiff.ply')
+            // Location 4
+            setup_render_divs("loc_4_top", './models/354000_5700500/dsm.ply')
+            setup_render_divs("loc_4_bottom", './models/354000_5700500/groundiff.ply')
+            // Location 5
+            setup_render_divs("loc_5_top", './models/354500_5700500/dsm.ply')
+            setup_render_divs("loc_5_bottom", './models/354500_5700500/groundiff.ply')
         };
 
     </script>
 </head>
-<body>
 
 
 <section class="hero">
@@ -373,18 +403,17 @@
                     <h1 class="title is-1 publication-title">GrounDiff: Diffusion-Based Ground Surface Generation from Digital Surface Models</h1>
                     <div class="is-size-5 publication-authors">
             <span class="author-block">
-              <a target="_blank" href="https://ussaema.github.io/">Oussema Dhaouadi</a><sup>1,2,3</sup>
+              <a target="_blank" href="https://cvg.cit.tum.de/members/dhou">Oussema Dhaouadi</a><sup>1,2,3</sup>
             </span>
                         <span class="author-block">
-              <a target="_blank" href="https://www.linkedin.com/in/johannes-meier-52a159b4/">Johannes Meier</a><sup>1,2,3</sup>&nbsp;&nbsp;&nbsp;</span>
+              <a target="_blank" href="https://cvg.cit.tum.de/members/mejo">Johannes Meier</a><sup>1,2,3</sup>&nbsp;&nbsp;&nbsp;</span>
                         <span class="author-block">
-              <a target="_blank" href="https://jacqueskaiser.com/">Jacques Kaiser</a><sup>1</sup>&nbsp;&nbsp;&nbsp;
+              <a target="_blank" href="https://www.linkedin.com/in/jacqueskaiser/">Jacques Kaiser</a><sup>1</sup>&nbsp;&nbsp;&nbsp;
             </span>
                         <span class="author-block">
               <a target="_blank" href="https://cvg.cit.tum.de/members/cremers">Daniel Cremers</a><sup>2,3</sup>
             </span>
                     </div>
-
 
                     <div class="is-size-5 publication-authors">
                         <span class="author-block"><sup>1</sup> DeepScenario</span>&nbsp;&nbsp;&nbsp;&nbsp;
@@ -392,13 +421,24 @@
                         <span class="author-block"><sup>3</sup> MCML</span>
                     </div>
 
+                    <div class="column has-text-centered">
+                        <div class="is-size-5 publication-authors">
+                           <span class="author-block">
+                              <b>
+                                WACV 2026
+                              </b>
+                            </span>
+                        </div>
+                    </div>
+
+
 
                     <div class="column has-text-centered">
                         <div class="publication-links">
                             <!-- PDF Link. -->
                             <span class="link-block">
                 <a href="https://arxiv.org/pdf/2511.10391"
-                   class="external-link button is-normal is-rounded is-dark">
+                   class="external-link button is-normal is-rounded is-dark" target="_blank">
                   <span class="icon">
                       <i class="fas fa-file-pdf"></i>
                   </span>
@@ -407,13 +447,15 @@
               </span>
                             <span class="link-block">
                 <a href="https://arxiv.org/abs/2511.10391"
-                   class="external-link button is-normal is-rounded is-dark">
+                   class="external-link button is-normal is-rounded is-dark" target="_blank">
                   <span class="icon">
                       <i class="ai ai-arxiv"></i>
                   </span>
                   <span>arXiv</span>
                 </a>
               </span>
+
+
 
                             <!-- Poster Link. -->
                             <!--   <span class="link-block">
@@ -425,6 +467,7 @@
                   <span>Poster</span>
                 </a>
               </span>-->
+
                         </div>
 
                     </div>
@@ -438,7 +481,7 @@
     <div class="container" style="width: 45%">
         <div class="hero-body">
             <center><video id="teaser" autoplay loop muted playsinline onplay="this.playbackRate = 1;" width="100%">
-                <source src="./static/videos/teaser.mp4" type="video/mp4">
+                <source src="./static/teaser.mp4" type="video/mp4">
             </video></center>
             <h2 class="subtitle has-text-centered">
                 <span class="method">GrounDiff</span> redefines DSM-to-DTM conversion by "denoising" terrain with diffusion, treating buildings and vegetation as noise and delivering cleaner, more precise ground surfaces than state-of-the-art approaches.
@@ -652,28 +695,28 @@ The samples come from different datasets presented in the paper. The satellite i
 
 <section class="section">
     <div class="container is-max-desktop">
-        <h3 class="title is-3">Road Reconstruction</h3>
+        <h3 class="title is-3">Ground Generation for Smooth Road Reconstruction</h3>
         <div class="container">
             <div id="results-carousel" class="carousel results-carousel">
                 <div class="item item-steve render_wrapper">
-                    <div id="loc_1" class="render_div"></div>
-                    <div id="loc_1b" class="render_div"></div>
+                    <div id="loc_1_top" class="render_div"></div>
+                    <div id="loc_1_bottom" class="render_div"></div>
                 </div>
                 <div class="item item-steve render_wrapper">
-                    <div id="loc_2" class="render_div"></div>
-                    <div id="loc_2b" class="render_div"></div>
+                    <div id="loc_2_top" class="render_div"></div>
+                    <div id="loc_2_bottom" class="render_div"></div>
                 </div>
                 <div class="item item-steve render_wrapper">
-                    <div id="loc_3" class="render_div"></div>
-                    <div id="loc_3b" class="render_div"></div>
+                    <div id="loc_3_top" class="render_div"></div>
+                    <div id="loc_3_bottom" class="render_div"></div>
                 </div>
                 <div class="item item-steve render_wrapper">
-                    <div id="loc_4" class="render_div"></div>
-                    <div id="loc_4b" class="render_div"></div>
+                    <div id="loc_4_top" class="render_div"></div>
+                    <div id="loc_4_bottom" class="render_div"></div>
                 </div>
                 <div class="item item-steve render_wrapper">
-                    <div id="loc_5" class="render_div"></div>
-                    <div id="loc_5b" class="render_div"></div>
+                    <div id="loc_5_top" class="render_div"></div>
+                    <div id="loc_5_bottom" class="render_div"></div>
                 </div>
             </div>
             <div style="text-align: center;">Press <b>G</b> to toggle wireframe. Press <b>R</b> to reset view.</div>
@@ -683,6 +726,7 @@ The samples come from different datasets presented in the paper. The satellite i
 
     </div>
 </section>
+
 
 
 <section class="section" id="bibtex">
