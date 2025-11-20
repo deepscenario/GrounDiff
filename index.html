@@ -1,0 +1,729 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="description"
+          content="GrounDiff: Diffusion-Based Ground Surface Generation from Digital Surface Models">
+    <meta name="keywords" content="Geospatial AI, DSM, DTM, DSM2DTM, Ground, Generation, Digital Surface Models, Digital Terrain Models, Digital Elevation Models">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>GrounDiff: Diffusion-Based Ground Surface Generation from Digital Surface Models</title>
+
+    <link href="https://fonts.googleapis.com/css?family=Google+Sans|Noto+Sans|Castoro"
+          rel="stylesheet">
+
+    <link rel="stylesheet" href="./static/css/bulma.min.css">
+    <link rel="stylesheet" href="./static/css/bulma-carousel.min.css">
+    <link rel="stylesheet" href="./static/css/bulma-slider.min.css">
+    <link rel="stylesheet" href="./static/css/fontawesome.all.min.css">
+    <link rel="stylesheet"
+          href="https://cdn.jsdelivr.net/gh/jpswalsh/academicons@1/css/academicons.min.css">
+    <link rel="stylesheet" href="./static/css/index.css">
+    <link rel="icon" href="static/images/favicon.ico">
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <script defer src="./static/js/fontawesome.all.min.js"></script>
+    <script src="./static/js/bulma-carousel.min.js"></script>
+    <script src="./static/js/bulma-slider.min.js"></script>
+    <script src="./static/js/index.js"></script>
+
+    <script async src="https://unpkg.com/es-module-shims@1.3.6/dist/es-module-shims.js"></script>
+
+    <style>
+        .render_wrapper {
+            position: relative;
+            height: 600px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .render_div {
+            position: relative;
+            height: 300px;
+            width: 100%;
+        }
+
+    </style>
+
+    <style>
+      .small-line {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        white-space: nowrap;
+        font-size: 12px;
+        width: 100%;
+      }
+    </style>
+
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "./js/three.module.js"
+            }
+        }
+    </script>
+
+    <script type="module">
+        import * as THREE from 'three';
+
+        import {PLYLoader} from './js/PLYLoader.js';
+        import {OrbitControls} from './js/OrbitControls.js'
+
+        let div_to_scene = {
+            "loc_1": {
+                "geo": null,
+                "color": null,
+            },
+            "loc_1b": {
+                "geo": null,
+                "color": null,
+            },
+            "loc_2": {
+                "geo": null,
+                "color": null,
+            },
+            "loc_2b": {
+                "geo": null,
+                "color": null,
+            },
+            "loc_3": {
+                "geo": null,
+                "color": null,
+            },
+            "loc_3b": {
+                "geo": null,
+                "color": null,
+            },
+            "loc_4": {
+                "geo": null,
+                "color": null,
+            },
+            "loc_4b": {
+                "geo": null,
+                "color": null,
+            },
+            "loc_5": {
+                "geo": null,
+                "color": null,
+            },
+            "loc_5b": {
+                "geo": null,
+                "color": null,
+            }
+        }
+        let div_to_render_scene = {
+            "mesh_style_0": {
+                "0": null,
+                "1": null,
+                "2": null,
+                "geo": null,
+            },
+            "mesh_style_1": {
+                "0": null,
+                "1": null,
+                "2": null,
+                "geo": null,
+            },
+            "mesh_style_2": {
+                "0": null,
+                "1": null,
+                "2": null,
+                "geo": null,
+            },
+            "mesh_style_3": {
+                "0": null,
+                "1": null,
+                "2": null,
+                "geo": null,
+            },
+        }
+        let mouse_button_down = false;
+        let list_of_orbit_controls = []
+        let style_camera = null;
+        let render_colors = false;
+        let style_id = "0"
+
+        function setup_camera(div_name) {
+            let container = document.getElementById(div_name);
+            let width = container.parentElement.clientWidth;
+            let height = container.parentElement.clientHeight;
+
+            let camera = new THREE.PerspectiveCamera(35, width / height, 0.1, 50);
+
+            camera.position.set(0, 0, 5);
+            camera.up.set(0, 1, 0);
+            camera.lookAt(new THREE.Vector3(0, 0, 0));
+
+            return camera;
+        }
+
+        function setup_render_divs(div_name, mesh_path) {
+            let camera = setup_camera(div_name)
+            let orbit_control = create_render_div(camera, div_name, mesh_path)
+            list_of_orbit_controls.push(orbit_control)
+        }
+
+        function setup_dual_render_divs(div_name_1, mesh_path_1, div_name_2, mesh_path_2) {
+            let camera1 = setup_camera(div_name_1)
+            let orbit_control1 = create_render_div(camera1, div_name_1, mesh_path_1)
+            list_of_orbit_controls.push(orbit_control1)
+            
+            let camera2 = setup_camera(div_name_2)
+            let orbit_control2 = create_render_div(camera2, div_name_2, mesh_path_2)
+            list_of_orbit_controls.push(orbit_control2)
+        }
+
+        function create_render_div(camera, div_id, mesh_path) {
+            let container;
+            let renderer, controls;
+
+            init();
+            animate();
+
+            function init() {
+
+                container = document.getElementById(div_id);
+                let width = container.parentElement.clientWidth;
+                let height = container.parentElement.clientHeight;
+
+
+                div_to_scene[div_id]["color"] = new THREE.Scene();
+                div_to_scene[div_id]["geo"] = new THREE.Scene();
+                div_to_scene[div_id]["color"].background = new THREE.Color(0xffffff);
+                div_to_scene[div_id]["geo"].background = new THREE.Color(0xffffff);
+
+                // PLY file
+
+                const loader = new PLYLoader();
+                loader.load(mesh_path, function (geometry) {
+
+                        geometry.computeVertexNormals();
+                        let material_color = new THREE.MeshStandardMaterial({
+                            color: 0xaaaaaa,
+                            flatShading: true,
+                            side: THREE.DoubleSide
+                        })
+                        let material_geo = new THREE.MeshStandardMaterial({
+                            color: 0x444444,
+                            flatShading: true,
+                            side: THREE.DoubleSide
+                        })
+
+                        let wireframe = new THREE.WireframeGeometry(geometry);
+                        let line = new THREE.LineSegments(wireframe);
+                        line.material.color.setHex(0x000000);
+
+                        const mesh_color = new THREE.Mesh(geometry, material_color);
+                        const mesh_geo = new THREE.Mesh(geometry, material_geo);
+
+                        div_to_scene[div_id]["color"].add(mesh_color);
+                        div_to_scene[div_id]["color"].add(line);
+                        div_to_scene[div_id]["geo"].add(mesh_geo);
+
+                    }, (xhr) => {
+                        console.log((xhr.loaded / xhr.total) * 100 + '% loaded')
+                    }, (error) => {
+                        console.log(error)
+                    }
+                );
+
+                // lights
+
+                div_to_scene[div_id]["color"].add(new THREE.HemisphereLight(0x333333, 0x222222));
+                div_to_scene[div_id]["geo"].add(new THREE.HemisphereLight(0x333333, 0x222222));
+                addShadowedLight(div_to_scene[div_id]["color"], 1, 1, 1, 0xffffff, 1.35 / 2);
+                addShadowedLight(div_to_scene[div_id]["color"], 0.5, 1, -1, 0xffffff, 1 / 2);
+                addShadowedLight(div_to_scene[div_id]["geo"], 1, 1, 1, 0xffffff, 1.35);
+                addShadowedLight(div_to_scene[div_id]["geo"], 0.5, 1, -1, 0xffffff, 1);
+
+                // renderer
+
+                renderer = new THREE.WebGLRenderer({antialias: true});
+                renderer.setPixelRatio(window.devicePixelRatio);
+                renderer.setSize(width, height);
+                renderer.outputEncoding = THREE.sRGBEncoding;
+
+                renderer.shadowMap.enabled = true;
+
+                container.appendChild(renderer.domElement);
+
+                controls = new OrbitControls(camera, renderer.domElement)
+                controls.enableDamping = false
+
+                // resize
+
+                window.addEventListener('resize', onWindowResize);
+
+            }
+
+            function onWindowResize() {
+                let width = container.clientWidth;
+                let height = container.clientHeight;
+                camera.aspect = width / height;
+                camera.updateProjectionMatrix();
+                renderer.setSize(width, height);
+            }
+
+            function animate() {
+                requestAnimationFrame(animate);
+                render();
+            }
+
+            function render() {
+                renderer.render(div_to_scene[div_id][render_colors ? "color" : "geo"], camera);
+                controls.update();
+            }
+
+            return controls;
+        }
+
+        function addShadowedLight(scene, x, y, z, color, intensity) {
+
+            const directionalLight = new THREE.DirectionalLight(color, intensity);
+            directionalLight.position.set(x, y, z);
+            scene.add(directionalLight);
+
+            directionalLight.castShadow = true;
+
+            const d = 1;
+            directionalLight.shadow.camera.left = -d;
+            directionalLight.shadow.camera.right = d;
+            directionalLight.shadow.camera.top = d;
+            directionalLight.shadow.camera.bottom = -d;
+
+            directionalLight.shadow.camera.near = 1;
+            directionalLight.shadow.camera.far = 4;
+
+            directionalLight.shadow.mapSize.width = 1024;
+            directionalLight.shadow.mapSize.height = 1024;
+
+            directionalLight.shadow.bias = -0.001;
+
+        }
+
+        document.addEventListener('keydown', logKey);
+
+        function logKey(evt) {
+            if (evt.keyCode === 71 && !mouse_button_down) {
+                switch_geometry()
+            }
+            if (evt.keyCode === 82 && !mouse_button_down) {
+                list_of_orbit_controls.forEach(oc => {
+                    console.log(oc.object.position)
+                })
+                reset_orbit_controls()
+            }
+        }
+
+        function switch_geometry() {
+            render_colors = !render_colors
+        }
+
+        function reset_orbit_controls() {
+            list_of_orbit_controls.forEach(oc => {
+                oc.reset()
+            })
+        }
+
+        function set_style_0() {
+            style_id = "0"
+        }
+
+        function set_style_1() {
+            style_id = "1"
+        }
+
+        function set_style_2() {
+            style_id = "2"
+        }
+
+        document.body.onmousedown = function (evt) {
+            if (evt.button === 0)
+                mouse_button_down = true
+        }
+        document.body.onmouseup = function (evt) {
+            if (evt.button === 0)
+                mouse_button_down = false
+        }
+
+        window.onload = function () {
+            let slider = document.getElementsByClassName("slider")[0]
+            slider.removeAttribute("tabIndex")
+            // slider.addEventListener("mouseout", reset_orbit_controls);
+            setup_dual_render_divs("loc_1", './static/meshes/dsm_295500_5629750.ply', "loc_1b", './static/meshes/groundiff_295500_5629750.ply')
+            setup_dual_render_divs("loc_2", './static/meshes/dsm_296750_5629500.ply', "loc_2b", './static/meshes/groundiff_296750_5629500.ply')
+            setup_dual_render_divs("loc_3", './static/meshes/dsm_381750_5760000.ply', "loc_3b", './static/meshes/groundiff_381750_5760000.ply')
+            setup_dual_render_divs("loc_4", './static/meshes/dsm_395000_5708750.ply', "loc_4b", './static/meshes/groundiff_395000_5708750.ply')
+            setup_dual_render_divs("loc_5", './static/meshes/dsm_419500_5726000.ply', "loc_5b", './static/meshes/groundiff_419500_5726000.ply')
+        };
+
+    </script>
+</head>
+<body>
+
+
+<section class="hero">
+    <div class="hero-body">
+        <div class="container is-max-desktop">
+            <div class="columns is-centered">
+                <div class="column has-text-centered">
+                    <h1 class="title is-1 publication-title">GrounDiff: Diffusion-Based Ground Surface Generation from Digital Surface Models</h1>
+                    <div class="is-size-5 publication-authors">
+            <span class="author-block">
+              <a target="_blank" href="https://ussaema.github.io/">Oussema Dhaouadi</a><sup>1,2,3</sup>
+            </span>
+                        <span class="author-block">
+              <a target="_blank" href="https://www.linkedin.com/in/johannes-meier-52a159b4/">Johannes Meier</a><sup>1,2,3</sup>&nbsp;&nbsp;&nbsp;</span>
+                        <span class="author-block">
+              <a target="_blank" href="https://jacqueskaiser.com/">Jacques Kaiser</a><sup>1</sup>&nbsp;&nbsp;&nbsp;
+            </span>
+                        <span class="author-block">
+              <a target="_blank" href="https://cvg.cit.tum.de/members/cremers">Daniel Cremers</a><sup>2,3</sup>
+            </span>
+                    </div>
+
+
+                    <div class="is-size-5 publication-authors">
+                        <span class="author-block"><sup>1</sup> DeepScenario</span>&nbsp;&nbsp;&nbsp;&nbsp;
+                        <span class="author-block"><sup>2</sup> TUM</span>&nbsp;&nbsp;&nbsp;&nbsp;
+                        <span class="author-block"><sup>3</sup> MCML</span>
+                    </div>
+
+
+                    <div class="column has-text-centered">
+                        <div class="publication-links">
+                            <!-- PDF Link. -->
+                            <span class="link-block">
+                <a href="https://arxiv.org/pdf/2511.10391"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="fas fa-file-pdf"></i>
+                  </span>
+                  <span>Paper</span>
+                </a>
+              </span>
+                            <span class="link-block">
+                <a href="https://arxiv.org/abs/2511.10391"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <i class="ai ai-arxiv"></i>
+                  </span>
+                  <span>arXiv</span>
+                </a>
+              </span>
+
+                            <!-- Poster Link. -->
+                            <!--   <span class="link-block">
+                <a href="./static/Poster_GrounDiff.pdf" target="_blank"
+                   class="external-link button is-normal is-rounded is-dark">
+                  <span class="icon">
+                      <img src="./static/images/poster_icon.png" alt="Poster Icon" style="width: 15px;">
+                  </span>
+                  <span>Poster</span>
+                </a>
+              </span>-->
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</section>
+
+<section class="hero teaser">
+    <div class="container" style="width: 45%">
+        <div class="hero-body">
+            <center><video id="teaser" autoplay loop muted playsinline onplay="this.playbackRate = 1;" width="100%">
+                <source src="./static/videos/teaser.mp4" type="video/mp4">
+            </video></center>
+            <h2 class="subtitle has-text-centered">
+                <span class="method">GrounDiff</span> redefines DSM-to-DTM conversion by "denoising" terrain with diffusion, treating buildings and vegetation as noise and delivering cleaner, more precise ground surfaces than state-of-the-art approaches.
+            </h2>
+        </div>
+    </div>
+</section>
+
+<section class="section">
+    <div class="container is-max-desktop">
+        <!-- Abstract. -->
+        <div class="columns is-centered has-text-centered">
+            <div class="column is-four-fifths">
+                <h2 class="title is-3">Abstract</h2>
+                <div class="content has-text-justified">
+<p>
+                    Digital Terrain Models (DTMs) represent the bare-earth elevation and are important in numerous geospatial applications.
+                    Such data models cannot be directly measured by sensors and are typically generated from Digital Surface Models (DSMs) derived from LiDAR or photogrammetry.
+                    Traditional filtering approaches rely on manually tuned parameters, while learning-based methods require well-designed architectures, often combined with post-processing.
+    To address these challenges, we introduce <span class="method">Ground Diffusion (GrounDiff)</span>, the first diffusion-based framework that iteratively removes non-ground structures by formulating the problem as a denoising task.
+                    We incorporate a gated design with confidence-guided generation that enables selective filtering.
+                    To increase scalability, we further propose <b>Prior-Guided Stitching (PrioStitch)</b>, which employs a downsampled global prior automatically generated using <span class="method">GrounDiff</span> to guide local high-resolution predictions.
+                    We evaluate our method on the DSM-to-DTM translation task across diverse datasets, showing that <span class="method">GrounDiff</span>, consistently <b>outperforms deep learning-based state-of-the-art methods</b>, reducing RMSE by up to 93% on ALS2DTM and up to 47% on USGS benchmarks.
+                    In the task of road reconstruction, which requires both high precision and smoothness, our method achieves up to <b>81% lower distance error</b> compared to specialized techniques on the GeRoD benchmark, while maintaining <b>competitive surface smoothness using only DSM inputs</b>, without task-specific optimization.
+                    Our variant for road reconstruction, <span class="method">GrounDiff+</span>, is specifically designed to produce even <b>smoother surfaces</b>, <b>further surpassing state-of-the-art methods</b>.
+                    </p>
+                </div>
+            </div>
+        </div>
+        <!--/ Abstract. -->
+
+    </div>
+</section>
+
+<section class="section">
+
+    <div class="container is-max-desktop">
+
+
+        <h3 class="title is-3">Ground Generation</h3>
+        <div class="container is-max-desktop">
+            <div class="content has-text-justified">
+The samples come from different datasets presented in the paper. The satellite images are sourced from Bing.
+            </div>
+            <div class="content has-text-justified">
+            <h2 class="title is-5">Successful Generations</h2>
+            <div class="columns is-centered">
+
+                <div class="column">
+                    <div class="content">
+                                                <center><b>Example 1</b></center>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/427758_4484693/bing.png&url2=../../static/images/427758_4484693/dsm.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                       <div class="small-line"><span>Sat. Image</span><span>DSM</span></div>
+                        <div style="height: 10px;"></div>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/427758_4484693/dtm.png&url2=../../static/images/427758_4484693/dtm_pred.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                        <div class="small-line"><span>Pred. DTM</span><span>GT DTM</span></div>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="content">
+                                                <center><b>Example 2</b></center>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/428156_4490294/bing.png&url2=../../static/images/428156_4490294/dsm.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                       <div class="small-line"><span>Sat. Image</span><span>DSM</span></div>
+                                                <div style="height: 10px;"></div>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/428156_4490294/dtm.png&url2=../../static/images/428156_4490294/dtm_pred.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                        <div class="small-line"><span>Pred. DTM</span><span>GT DTM</span></div>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="content">
+                                                <center><b>Example 3</b></center>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/432238_4486997/bing.png&url2=../../static/images/432238_4486997/dsm.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                       <div class="small-line"><span>Sat. Image</span><span>DSM</span></div>
+                                                <div style="height: 10px;"></div>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/432238_4486997/dtm.png&url2=../../static/images/432238_4486997/dtm_pred.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                        <div class="small-line"><span>Pred. DTM</span><span>GT DTM</span></div>
+                    </div>
+                </div>
+            </div>
+            <div class="columns is-centered">
+                <div class="column">
+                    <div class="content">
+                                                <center><b>Example 4</b></center>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/669841_3131184/bing.png&url2=../../static/images/669841_3131184/dsm.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                       <div class="small-line"><span>Sat. Image</span><span>DSM</span></div>
+                                                <div style="height: 10px;"></div>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/669841_3131184/dtm.png&url2=../../static/images/669841_3131184/dtm_pred.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                        <div class="small-line"><span>Pred. DTM</span><span>GT DTM</span></div>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="content">
+                        <center><b>Example 5</b></center>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/592775_5184648/bing.png&url2=../../static/images/592775_5184648/dsm.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                       <div class="small-line"><span>Sat. Image</span><span>DSM</span></div>
+                                                <div style="height: 10px;"></div>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/592775_5184648/dtm.png&url2=../../static/images/592775_5184648/dtm_pred.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                        <div class="small-line"><span>Pred. DTM</span><span>GT DTM</span></div>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="content">
+                        <center><b>Example 6</b></center>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/665489_3129520/bing.png&url2=../../static/images/665489_3129520/dsm.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                       <div class="small-line"><span>Sat. Image</span><span>DSM</span></div>
+                                                <div style="height: 10px;"></div>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/665489_3129520/dtm.png&url2=../../static/images/665489_3129520/dtm_pred.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                        <div class="small-line"><span>Pred. DTM</span><span>GT DTM</span></div>
+                    </div>
+                </div>
+            </div>
+               <span class="method">GrounDiff</span> reliably removes buildings, vegetation, and other above-ground structures while preserving natural terrain features, even in challenging conditions.
+
+        </div>
+
+        <div class="content has-text-justified">
+            <h2 class="title is-5">Limitations</h2>
+            <div class="columns is-centered">
+                <div class="column">
+                    <div class="content">
+                                                <center><b>Example 1</b></center>
+                         <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/589959_5187464/bing.png&url2=../../static/images/589959_5187464/dsm.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                       <div class="small-line"><span>Sat. Image</span><span>DSM</span></div>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/589959_5187464/dtm.png&url2=../../static/images/589959_5187464/dtm_pred.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                        <div class="small-line"><span>Pred. DTM</span><span>GT DTM</span></div>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="content">
+                                                <center><b>Example 2</b></center>
+                         <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/588423_5180040/bing.png&url2=../../static/images/588423_5180040/dsm.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                       <div class="small-line"><span>Sat. Image</span><span>DSM</span></div>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/588423_5180040/dtm.png&url2=../../static/images/588423_5180040/dtm_pred.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                        <div class="small-line"><span>Pred. DTM</span><span>GT DTM</span></div>
+                    </div>
+                </div>
+                <div class="column">
+                    <div class="content">
+                                                <center><b>Example 3</b></center>
+                         <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/589703_5187720/bing.png&url2=../../static/images/589703_5187720/dsm.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                       <div class="small-line"><span>Sat. Image</span><span>DSM</span></div>
+                        <iframe
+                                src="static/htmls/overlay.html?url1=../../static/images/589703_5187720/dtm.png&url2=../../static/images/589703_5187720/dtm_pred.png"
+                                frameborder="0" allow="autoplay; encrypted-media" allowfullscreen
+                                style="width: 300px; height: 300px" scrolling="no"></iframe>
+                        <div class="small-line"><span>Pred. DTM</span><span>GT DTM</span></div>
+                    </div>
+                </div>
+
+            </div>
+            <span class="method">GrounDiff</span> has difficulties in areas with abrupt elevation changes such as alpine terrain. Sharp height gradients can look similar to building facades, which leads to misclassification and produces regeneration errors with locally smoothed surfaces. In dense vegetation, where the ground is mostly hidden, the model tends to infer vegetation height but lacks real ground references. As a result, it can fail entirely when pixel height differences are too small to distinguish above-ground structures.
+
+        </div>
+        </div>
+
+
+    </div>
+</section>
+
+
+<section class="section">
+    <div class="container is-max-desktop">
+        <h3 class="title is-3">Road Reconstruction</h3>
+        <div class="container">
+            <div id="results-carousel" class="carousel results-carousel">
+                <div class="item item-steve render_wrapper">
+                    <div id="loc_1" class="render_div"></div>
+                    <div id="loc_1b" class="render_div"></div>
+                </div>
+                <div class="item item-steve render_wrapper">
+                    <div id="loc_2" class="render_div"></div>
+                    <div id="loc_2b" class="render_div"></div>
+                </div>
+                <div class="item item-steve render_wrapper">
+                    <div id="loc_3" class="render_div"></div>
+                    <div id="loc_3b" class="render_div"></div>
+                </div>
+                <div class="item item-steve render_wrapper">
+                    <div id="loc_4" class="render_div"></div>
+                    <div id="loc_4b" class="render_div"></div>
+                </div>
+                <div class="item item-steve render_wrapper">
+                    <div id="loc_5" class="render_div"></div>
+                    <div id="loc_5b" class="render_div"></div>
+                </div>
+            </div>
+            <div style="text-align: center;">Press <b>G</b> to toggle wireframe. Press <b>R</b> to reset view.</div>
+        </div>
+
+        <h3 class="title is-5">Vision-Geometry Duality</h3>
+
+    </div>
+</section>
+
+
+<section class="section" id="bibtex">
+    <div class="container is-max-desktop content">
+        <h2 class="title">BibTeX</h2>
+        <pre><code id="bibtex_txt">@inproceedings{dhaouadi2025groundiff,
+  title        = {GrounDiff: Diffusion-Based Ground Surface Generation from Digital Surface Models},
+  author       = {Dhaouadi, Oussema and Meier, Johannes and Kaiser, Jacques and Cremers, Daniel},
+  booktitle    = {Proceedings of the Winter Conference on Applications of Computer Vision (WACV)},
+  year         = {2026}
+}</code></pre>
+    </div>
+</section>
+
+<script
+        type="text/javascript">
+    document.getElementById("bibtex_txt").onclick = function () {
+        var range = document.createRange();
+        range.selectNode(document.getElementById("bibtex_txt"));
+        window.getSelection().removeAllRanges();
+        window.getSelection().addRange(range);
+    };
+</script>
+
+<footer class="footer">
+    <div class="container">
+        <div class="columns is-centered">
+            <div class="column is-8">
+                <div class="content">
+
+                    <p>
+                        This page was built using the <a
+                            href="https://github.com/eliahuhorwitz/Academic-project-page-template"
+                            target="_blank">Academic Project Page Template</a> which was adopted from the <a
+                            href="https://nerfies.github.io" target="_blank">Nerfies</a> project page.
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</footer>
+
+</body>
+</html>
