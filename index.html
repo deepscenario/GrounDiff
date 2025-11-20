@@ -44,6 +44,21 @@
             height: 300px;
         }
         
+        /* Labels for DSM and DTM */
+        .mesh-label {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: bold;
+            z-index: 100;
+            pointer-events: none;
+        }
+        
         /* Ensure carousel navigation buttons work */
         .carousel-container,
         .container {
@@ -700,24 +715,44 @@ The samples come from different datasets presented in the paper. The satellite i
         <div class="container">
             <div id="results-carousel" class="carousel results-carousel">
                 <div class="item item-steve render_wrapper">
-                    <div id="loc_1_top" class="render_div"></div>
-                    <div id="loc_1_bottom" class="render_div"></div>
+                    <div id="loc_1_top" class="render_div">
+                        <div class="mesh-label">Example 1 - DSM</div>
+                    </div>
+                    <div id="loc_1_bottom" class="render_div">
+                        <div class="mesh-label">Example 1 - Pred. DTM</div>
+                    </div>
                 </div>
                 <div class="item item-steve render_wrapper">
-                    <div id="loc_2_top" class="render_div"></div>
-                    <div id="loc_2_bottom" class="render_div"></div>
+                    <div id="loc_2_top" class="render_div">
+                        <div class="mesh-label">Example 2 - DSM</div>
+                    </div>
+                    <div id="loc_2_bottom" class="render_div">
+                        <div class="mesh-label">Example 2 - Pred. DTM</div>
+                    </div>
                 </div>
                 <div class="item item-steve render_wrapper">
-                    <div id="loc_3_top" class="render_div"></div>
-                    <div id="loc_3_bottom" class="render_div"></div>
+                    <div id="loc_3_top" class="render_div">
+                        <div class="mesh-label">Example 3 - DSM</div>
+                    </div>
+                    <div id="loc_3_bottom" class="render_div">
+                        <div class="mesh-label">Example 3 - Pred. DTM</div>
+                    </div>
                 </div>
                 <div class="item item-steve render_wrapper">
-                    <div id="loc_4_top" class="render_div"></div>
-                    <div id="loc_4_bottom" class="render_div"></div>
+                    <div id="loc_4_top" class="render_div">
+                        <div class="mesh-label">Example 4 - DSM</div>
+                    </div>
+                    <div id="loc_4_bottom" class="render_div">
+                        <div class="mesh-label">Example 4 - Pred. DTM</div>
+                    </div>
                 </div>
                 <div class="item item-steve render_wrapper">
-                    <div id="loc_5_top" class="render_div"></div>
-                    <div id="loc_5_bottom" class="render_div"></div>
+                    <div id="loc_5_top" class="render_div">
+                        <div class="mesh-label">Example 5 - DSM</div>
+                    </div>
+                    <div id="loc_5_bottom" class="render_div">
+                        <div class="mesh-label">Example 5 - Pred. DTM</div>
+                    </div>
                 </div>
             </div>
             <div style="text-align: center;">Press <b>G</b> to toggle wireframe. Press <b>R</b> to reset view.</div>
