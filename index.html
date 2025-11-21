@@ -48,7 +48,8 @@
         .mesh-label {
             position: absolute;
             top: 10px;
-            left: 10px;
+            left: 50%;
+            transform: translateX(-50%);
             background: rgba(0, 0, 0, 0.7);
             color: white;
             padding: 5px 12px;
@@ -57,6 +58,7 @@
             font-weight: bold;
             z-index: 100;
             pointer-events: none;
+            white-space: nowrap;
         }
         
         /* Labels for overlay images - left and right positioning */
@@ -507,7 +509,7 @@
     <div class="container" style="width: 45%">
         <div class="hero-body">
             <center><video id="teaser" autoplay loop muted playsinline onplay="this.playbackRate = 1;" width="100%">
-                <source src="./static/teaser.mp4" type="video/mp4">
+                <source src="static/teaser.mp4" type="video/mp4">
             </video></center>
             <h2 class="subtitle has-text-centered">
                 <span class="method">GrounDiff</span> redefines DSM-to-DTM conversion by "denoising" terrain with diffusion, treating buildings and vegetation as noise and delivering cleaner, more precise ground surfaces than state-of-the-art approaches.
@@ -550,7 +552,7 @@
         <h3 class="title is-3">Ground Generation</h3>
         <div class="container is-max-desktop">
             <div class="content has-text-justified">
-The samples come from different datasets presented in the paper. The satellite images are sourced from Bing.
+The samples come from different datasets presented in the paper. The satellite images are sourced from <a href="http://bing.com/maps" target="_blank">Bing Maps</a>.
             </div>
             <div class="content has-text-justified">
             <h2 class="title is-5">Successful Generations</h2>
